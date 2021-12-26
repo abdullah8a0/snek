@@ -1,0 +1,101 @@
+[
+  {
+    "ok": true,
+    "output": "SOMETHING"
+  },
+  {
+    "ok": true,
+    "output": 6
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": false,
+    "type": "SnekNameError"
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": false,
+    "type": "SnekNameError"
+  },
+  {
+    "ok": false,
+    "type": "SnekNameError"
+  },
+  {
+    "ok": false,
+    "type": "SnekNameError"
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": true,
+    "output": "SOMETHING"
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": true,
+    "output": "SOMETHING"
+  },
+  {
+    "ok": false,
+    "type": "SnekEvaluationError"
+  },
+  {
+    "ok": true,
+    "output": -7
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": true,
+    "output": "SOMETHING"
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  },
+  {
+    "ok": false,
+    "type": "SnekSyntaxError",
+    "when": "parse"
+  }
+]
