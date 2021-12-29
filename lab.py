@@ -1,5 +1,7 @@
-#!/usr/bin/env python3
-"""6.009 Lab 9: Snek Interpreter"""
+"""6.009 Lab 10: Snek Interpreter Part 2"""
+
+import sys
+sys.setrecursionlimit(5000)
 
 import doctest
 # NO ADDITIONAL IMPORTS!
@@ -136,7 +138,7 @@ def paran_pairs(token):
     returns a list of tuples where: 
         tuple[0] <- index of '('
         tuple[1] <- index of matching ')'
-    RETURNS A LIST ORDERED FROM HIGH PRIORITY TO LOW
+    RETURNS A LIST ORDERED FROM TOP TO BOTTOM
     '''
     ret = []
     stack = []
@@ -249,12 +251,159 @@ def div(args):
     return res
 
     
+class Pair:
+    def __init__(self, car, cdr):
+        self.car = car
+        self.cdr = cdr
+
+    def dupe(self):
+        if self.cdr == 'nil':
+            return Pair(self.car,'nil')
+        if not isinstance(self.cdr, Pair):
+            return Pair(self.car, self.cdr)
+        return Pair(self.car,self.cdr.dupe()) 
+
+def car(arg): 
+    if type(arg[0]) == Pair:
+        return arg[0].car
+    else:
+        raise SnekEvaluationError("'car' arguement is not a cons pair")
+
+
+def cdr(arg): 
+    if isinstance(arg[0],Pair):
+        return arg[0].cdr
+    else:
+        raise SnekEvaluationError("'cdr' arguement is not a cons pair")
+
+
+def SnekList(args):
+    if not args:
+        return 'nil'
+    return Pair(args[0], SnekList(args[1:]))
+
+def SnekLen(args):
+    if args[0] == 'nil':
+        return 0
+    if not isinstance(args[0],Pair):
+        raise SnekEvaluationError("Trying to call 'length' on something that is not a list")
+    return SnekLen([args[0].cdr]) + 1 
+    
+    
+def SnekElem(args):
+    l, index = args
+    if l == 'nil':
+        raise SnekEvaluationError("cannot select element from an empty list")
+    pointer = l
+    while pointer.cdr != 'nil' and index != 0:
+        pointer = pointer.cdr
+        if not isinstance(pointer, Pair) and pointer !='nil':
+            raise SnekEvaluationError("linked list does not end with nil")
+        index -= 1
+
+    if index != 0:
+        raise SnekEvaluationError("index out of range")
+
+    return pointer.car
+        
+def SnekConcat(args):
+    
+    if any((not isinstance(arg, Pair) and arg !='nil') for arg in args ):
+        raise SnekEvaluationError("Can only concat lists") 
+    if not args:
+        return 'nil'
+    
+    if len(args) == 1:
+        if args[0] != 'nil':
+            return args[0].dupe()
+        else: 
+            return 'nil'
+
+    if args[0] == 'nil':
+        return SnekConcat(args[1:])
+
+    copy = args[0].dupe()
+    pointer = copy
+
+
+    while pointer.cdr != 'nil':
+        pointer = pointer.cdr
+        if not isinstance(pointer, Pair) and pointer !='nil':
+            raise SnekEvaluationError("linked list does not end with nil")
+    pointer.cdr = SnekConcat(args[1:])
+    return copy
+
+
+def SnekMap(args):
+    func, l = args
+    if l=='nil':
+        return 'nil' 
+
+    if not isinstance(l, Pair):
+        raise SnekEvaluationError("map can only take list as input")
+    copy = l.dupe()
+    pointer = copy
+    
+    pointer.car = func([pointer.car])
+    while pointer.cdr != 'nil':
+        pointer = pointer.cdr
+        pointer.car = func([pointer.car])
+    return copy
+
+
+def SnekFilter(args):
+    func, l = args
+    if l =='nil':
+        return l
+
+    
+    ret = 'nil'
+    pointer = l
+
+    while pointer != 'nil':
+        if func([pointer.car]) == '#t':
+            if ret == 'nil':
+                ret = Pair(pointer.car, 'nil')
+                ret_pointer = ret
+            else:
+                ret_pointer.cdr = Pair(pointer.car,'nil')
+                ret_pointer = ret_pointer.cdr
+        pointer = pointer.cdr
+    return ret
+
+def SnekReduce(args):
+    func, l, init = args
+    
+    ret = init
+    pointer = l
+    while pointer!='nil':
+        ret = func([ret, pointer.car])
+
+        pointer = pointer.cdr
+    return ret
+    
 
 snek_builtins = {
-    '+': sum,
-    '-': lambda args: -args[0] if len(args) == 1 else (args[0] - sum(args[1:])),
-    '*': mul,
-    '/': div,
+    '+' : sum,
+    '-' : lambda args: -args[0] if len(args) == 1 else (args[0] - sum(args[1:])),
+    '*' : mul,
+    '/' : div,
+    '=?': lambda args: '#t' if all(args[0] == arg for arg in args) else '#f',
+    '>' : lambda args: '#t' if all(args[i] > args[i+1] for i in range(len(args)-1)) else '#f',
+    '>=': lambda args: '#t' if all(args[i] >= args[i+1] for i in range(len(args)-1)) else '#f',
+    '<' : lambda args: '#t' if all(args[i] < args[i+1] for i in range(len(args)-1)) else '#f',
+    '<=': lambda args: '#t' if all(args[i] <= args[i+1] for i in range(len(args)-1)) else '#f',
+    'cons': lambda args: Pair(*args),
+    'car': car, 
+    'cdr': cdr,
+    'list': SnekList,
+    'length': SnekLen,
+    'elt-at-index': SnekElem,
+    'concat': SnekConcat,
+    'map': SnekMap,
+    'filter': SnekFilter,
+    'reduce': SnekReduce,
+    'begin' : lambda args: args[-1],
 }
     
 ###############
@@ -324,8 +473,6 @@ class SnekFuncInst(SnekSpace):
         super().__init__(definition.parent)
         self.definition = definition
         
-    
-
 
 
 ##############
@@ -347,14 +494,18 @@ def evaluate(tree, space = SnekSpace(SnekBuiltin())):
     """
 
     if not isinstance(tree, list):                              # BASE CASE
-        if isinstance(tree, int) or isinstance(tree,float):
+        if isinstance(tree, int) or isinstance(tree,float) or tree in {'#f', '#t', 'nil'}:
             return tree
         try:
             op = space.lookup(tree)
             return op
         except SnekNameError:
             raise SnekNameError('An element is not a valid function or expression:',tree)
-
+    
+    if len(tree) == 0:
+        raise SnekEvaluationError("Empty brackets")
+    
+    
     # HANDLING SPECIAL TYPES
     
     if tree[0] == ':=':
@@ -369,13 +520,81 @@ def evaluate(tree, space = SnekSpace(SnekBuiltin())):
 
     if tree[0] == 'function':
         return SnekFuncDef(tree[1],tree[2], space)
+    
+    if tree[0] == 'and':
+        flag = True
+        i = 1
+        while flag and i< len(tree):
+            if (result := evaluate(tree[i],space)) == '#f':
+                flag = False
+            elif result == '#t':
+                i +=1
+            else:
+                raise SnekEvaluationError("One of 'and' arguements is not a bool")
+        
+        if flag:
+            return '#t'
+        return '#f'
+        
+    if tree[0] == 'or':
+        flag = False
+        i = 1
+        while not flag and i<len(tree):
+            if (r := evaluate(tree[i], space)) == '#t':
+                flag = True 
+            elif r == '#f':
+                i+=1
+            else:
+                raise SnekEvaluationError("One of 'or' arguements is not a bool")
+        if flag:
+            return '#t'
+        return '#f'
+
+    if tree[0] == 'not':
+        ret = '#t' if evaluate(tree[1],space) == '#f' else '#f'
+        return ret
+
+    if tree[0] == 'if':
+        cond, true_exp, false_exp = tree[1:]
+        if evaluate(cond,space) == '#t':
+            return evaluate(true_exp,space)
+        else:
+            return evaluate(false_exp,space)
+    
+    if tree[0] == 'del':
+        var = tree[1]
+        if var not in space.data:
+            raise SnekNameError("'del' is trying to delete a variable that is not bound locally")
+        val = space.lookup(var)
+        del space.data[var]
+        return val
+
+    if tree[0] == 'let':
+        var_assign,body = tree[1:]
+        let_space = SnekSpace(space)
+        for var,val_raw in var_assign:
+            val = evaluate(val_raw, space)
+            let_space.assign(var,val)
+        return evaluate(body,let_space)
+
+    if tree[0] == 'set!':
+        var, exp = tree[1:]
+        val = evaluate(exp, space)
+        pointer = space
+        while isinstance(pointer, SnekSpace):
+            if var in pointer.data: 
+                pointer.assign(var,val)
+                return val
+            pointer = pointer.parent
+        raise SnekNameError("'set!' is trying to change a variable that doesnt exist") 
 
     # Recursive Case
 
     temp = [evaluate(i,space) for i in tree]
     try:
         return temp[0](temp[1:])
-    except TypeError:
+    except TypeError as err:
+        print("Got Python Err:", err)
         raise SnekEvaluationError('First term is not callable:',temp)
 
 
@@ -384,6 +603,19 @@ def result_and_env(tree, space= None):
         base = SnekBuiltin()
         space = SnekSpace(base)
     return (evaluate(tree,space),space)
+
+
+def evaluate_file(code, space = SnekSpace(SnekBuiltin())):
+    with open(code,'r') as f:
+        s = ''
+        for line in f:
+            s += line
+
+        token = tokenize(s)
+        p = parse(token)
+        res = evaluate(p,space)
+    return res
+
 
 
 if __name__ == '__main__':
@@ -397,6 +629,9 @@ if __name__ == '__main__':
     
     base = SnekBuiltin()
     globals_ = SnekSpace(base)
+    for f in sys.argv[1:]:
+        evaluate_file(f,globals_)
+    
     while exp != 'QUIT':
         try:
             token = tokenize(exp)
@@ -413,7 +648,6 @@ if __name__ == '__main__':
 
     
     pass
-
 
 
 
