@@ -480,7 +480,7 @@ class SnekFuncInst(SnekSpace):
 ##############
 
 
-def evaluate(tree, space = SnekSpace(SnekBuiltin())):
+def evaluate(tree, space:SnekSpace = SnekSpace(SnekBuiltin())):
     """
     Evaluate the given syntax tree according to the rules of the Snek
     language.
